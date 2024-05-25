@@ -81,15 +81,15 @@ enum MenuEntry {
 
 impl MenuEntry {
     fn label(&self) -> String {
-        match &self {
-            &Self::Xdg(entry) => entry.label.clone(),
-            &Self::Custom(entry) => entry.label.clone(),
+        match self {
+            Self::Xdg(entry) => entry.label.clone(),
+            Self::Custom(entry) => entry.label.clone(),
         }
     }
     fn icon(&self) -> Option<String> {
-        match &self {
-            &Self::Xdg(entry) => entry.icon.clone(),
-            &Self::Custom(entry) => entry.icon.clone(),
+        match self {
+            Self::Xdg(entry) => entry.icon.clone(),
+            Self::Custom(entry) => entry.icon.clone(),
         }
     }
 }
@@ -314,7 +314,7 @@ fn make_entry<R: Clone + 'static>(
 
                 let icon_name = sub_entry.file_name.trim_end_matches(".desktop");
                 let gtk_image = gtk::Image::new();
-                let image = ImageProvider::parse(&icon_name, &icon_theme, true, 16);
+                let image = ImageProvider::parse(icon_name, &icon_theme, true, 16);
                 if let Some(image) = image {
                     button.set_image(Some(&gtk_image));
                     button.set_always_show_image(true);
@@ -360,7 +360,7 @@ fn add_entries(
     main_menu: gtk::Box,
     container: gtk::Box,
     height: Option<i32>,
-) -> () {
+) {
     let container1 = container.clone();
     main_menu.add(&button);
 
@@ -385,11 +385,9 @@ fn add_entries(
                 });
                 sub_menu1.show();
                 // Reset scroll to top.
-                sub_menu_popup_container
-                    .children()
-                    .iter()
-                    .next()
-                    .map(|w| w.set_has_focus(true));
+                if let Some(w) = sub_menu_popup_container.children().first() {
+                    w.set_has_focus(true)
+                }
             });
         } else {
             container.add(&sub_menu);
@@ -461,8 +459,8 @@ impl Module<Button> for MenuModule {
                     }
                     let raw_cats = desktop.attr("Categories").unwrap_or("Misc");
                     let categories = raw_cats
-                        .trim_end_matches(";")
-                        .split(";")
+                        .trim_end_matches(';')
+                        .split(';')
                         .map(|s| s.to_string())
                         .collect();
                     let mut name = desktop.attr("Name")?.to_string();
@@ -472,7 +470,7 @@ impl Module<Button> for MenuModule {
                             .graphemes(true)
                             .take(max_label_length - 1)
                             .collect::<String>();
-                        name = name + "…";
+                        name += "…";
                     }
 
                     // Some .desktop files are only for associating mimetypes
@@ -481,8 +479,8 @@ impl Module<Button> for MenuModule {
                     }
                     Some(MenuApplication {
                         label: name,
-                        file_name: file_name,
-                        categories: categories,
+                        file_name,
+                        categories,
                     })
                 })
                 .collect::<Vec<MenuApplication>>();
@@ -501,13 +499,13 @@ impl Module<Button> for MenuModule {
         let icon_theme = info.icon_theme.clone();
         let button = Button::new();
 
-        if let Some(label) = self.label.clone() {
-            button.set_label(&*label);
+        if let Some(ref label) = self.label {
+            button.set_label(label);
         }
 
-        if let Some(label_icon) = self.label_icon.clone() {
+        if let Some(ref label_icon) = self.label_icon {
             let gtk_image = gtk::Image::new();
-            let image = ImageProvider::parse(&*label_icon, &icon_theme, true, self.label_icon_size);
+            let image = ImageProvider::parse(label_icon, &icon_theme, true, self.label_icon_size);
             if let Some(image) = image {
                 button.set_image(Some(&gtk_image));
                 button.set_always_show_image(true);
@@ -546,7 +544,7 @@ impl Module<Button> for MenuModule {
         let alignment = {
             match info.bar_position {
                 // For fixed height menus always align to the top
-                _ if matches!(self.height, Some(_)) => gtk::Align::Start,
+                _ if self.height.is_some() => gtk::Align::Start,
                 // Otherwise alignment is based on menu position
                 BarPosition::Top => gtk::Align::Start,
                 BarPosition::Bottom => gtk::Align::End,
@@ -594,8 +592,7 @@ impl Module<Button> for MenuModule {
                 for application in applications.iter() {
                     let mut inserted = false;
                     for category in application.categories.iter() {
-                        match sections_by_cat.get(category) {
-                            Some(section_names) => {
+                        if let Some(section_names) = sections_by_cat.get(category) {
                                 for section_name in section_names.iter() {
                                     let existing = start_entries.get_mut(section_name);
                                     if let Some(MenuEntry::Xdg(existing)) = existing {
@@ -611,9 +608,7 @@ impl Module<Button> for MenuModule {
                                     }
                                 };
                                 inserted = true;
-                            },
-                            None => (),
-                        };
+                            }
                     };
                     if !inserted {
                         let other = center_entries.get_mut(OTHER_LABEL);
@@ -680,10 +675,12 @@ impl Module<Button> for MenuModule {
             });
 
             {
-                let pos = info.bar_position.clone();
+                let pos = info.bar_position;
                 let container = container2;
                 let win = context.popup.window.clone();
-                (*context.popup.clone())
+                context
+                    .popup
+                    .clone()
                     .window
                     .connect_leave_notify_event(move |_button, ev| {
                         const THRESHOLD: f64 = 3.0;
