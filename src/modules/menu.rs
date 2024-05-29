@@ -22,7 +22,7 @@ use tracing::{debug, error};
 
 use super::ModuleLocation;
 
-fn default_length() -> usize {
+const fn default_length() -> usize {
     25
 }
 
