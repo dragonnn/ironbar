@@ -17,7 +17,7 @@ Application menu that shows installed programs and optionally custom entries. Cl
 | `label_icon_size`   | `integer`  | `16` | Size of the label_icon if one is supplied |
 
 
-> Type: `MenuEQntry`
+> Type: `MenuEntry`
 
 |              | Type       | Default | Description                                                                                         |
 |--------------|------------|---------|-----------------------------------------------------------------------------------------------------|
