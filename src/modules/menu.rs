@@ -30,7 +30,7 @@ fn default_menu_popup_label() -> Option<String> {
     Some("≡".to_string())
 }
 
-fn default_menu_popup_icon_size() -> i32 {
+const fn default_menu_popup_icon_size() -> i32 {
     16
 }
 
