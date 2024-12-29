@@ -36,6 +36,8 @@ pub mod keys;
 pub mod label;
 #[cfg(feature = "launcher")]
 pub mod launcher;
+#[cfg(feature = "menu")]
+pub mod menu;
 #[cfg(feature = "music")]
 pub mod music;
 #[cfg(feature = "network_manager")]
