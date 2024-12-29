@@ -22,8 +22,12 @@ You also need rust; only the latest stable version is supported.
 pacman -S gtk3 gtk-layer-shell
 # for http support
 pacman -S openssl
+# for tray support
+pacman -S libdbusmenu-gtk3
 # for volume support
 pacman -S libpulse
+# for keys support
+pacman -S libinput
 # for lua/cairo support
 pacman -S luajit lua51-lgi
 ```
@@ -34,8 +38,12 @@ pacman -S luajit lua51-lgi
 apt install build-essential libgtk-3-dev libgtk-layer-shell-dev
 # for http support
 apt install libssl-dev
+# for tray support
+apt install libdbusmenu-gtk3-dev
 # for volume support
 apt install libpulse-dev
+# for keys support
+apt install libinput-dev
 # for lua/cairo support
 apt install luajit-dev lua-lgi
 ```
@@ -46,8 +54,12 @@ apt install luajit-dev lua-lgi
 dnf install gtk3-devel gtk-layer-shell-devel
 # for http support
 dnf install openssl-devel
+# for tray support
+dnf install libdbusmenu-gtk3-devel
 # for volume support
 dnf install pulseaudio-libs-devel
+# for keys support
+dnf install libinput-devel
 # for lua/cairo support
 dnf install luajit-devel lua-lgi
 ```
@@ -105,6 +117,26 @@ cargo build --release --no-default-features \
 | **Other**           |                                                                                   |
 | schema              | Enables JSON schema support and the CLI `--print-schema` flag.                    |
 
+## Shell completions
+
+Compiling Ironbar will produce shell completions for bash, zsh and fish; these can be found in `target/completions`.
+
+You can install these as follows:
+
+Bash: 
+```shell
+install -Dm644 completions/ironbar.bash /usr/share/bash-completion/completions/ironbar
+```
+
+Zsh:
+```shell
+install -Dm644 completions/_ironbar /usr/share/zsh/site-functions/_ironbar
+```
+
+Fish:
+```shell
+install -Dm644 completions/ironbar.fish /usr/share/fish/vendor_completions.d/ironbar.fish
+```
 
 ## Speeding up compiling
 

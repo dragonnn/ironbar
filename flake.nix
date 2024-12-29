@@ -11,7 +11,6 @@
 
     crane = {
       url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     naersk.url = "github:nix-community/naersk";
@@ -129,7 +128,10 @@
               hicolor-icon-theme
               gsettings-desktop-schemas
               libxkbcommon
+              libdbusmenu-gtk3
               libpulseaudio
+              libinput
+              libevdev
               luajit
               luajitPackages.lgi
             ];

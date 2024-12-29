@@ -1,15 +1,17 @@
 use super::open_state::OpenState;
 use crate::clients::wayland::ToplevelInfo;
-use crate::config::BarPosition;
-use crate::gtk_helpers::IronbarGtkExt;
+use crate::config::{BarPosition, TruncateMode};
+use crate::gtk_helpers::{IronbarGtkExt, IronbarLabelExt};
 use crate::image::ImageProvider;
 use crate::modules::launcher::{ItemEvent, LauncherUpdate};
 use crate::modules::ModuleUpdateEvent;
 use crate::{read_lock, try_send};
 use glib::Propagation;
+use gtk::gdk::{BUTTON_MIDDLE, BUTTON_PRIMARY};
 use gtk::prelude::*;
-use gtk::{Button, IconTheme};
+use gtk::{Button, IconTheme, Image, Label, Orientation};
 use indexmap::IndexMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::RwLock;
 use tokio::sync::mpsc::Sender;
@@ -134,7 +136,7 @@ pub struct MenuState {
 }
 
 pub struct ItemButton {
-    pub button: Button,
+    pub button: ImageTextButton,
     pub persistent: bool,
     pub show_names: bool,
     pub menu_state: Rc<RwLock<MenuState>>,
@@ -145,6 +147,7 @@ pub struct AppearanceOptions {
     pub show_names: bool,
     pub show_icons: bool,
     pub icon_size: i32,
+    pub truncate: TruncateMode,
 }
 
 impl ItemButton {
@@ -156,16 +159,14 @@ impl ItemButton {
         tx: &Sender<ModuleUpdateEvent<LauncherUpdate>>,
         controller_tx: &Sender<ItemEvent>,
     ) -> Self {
-        let mut button = Button::builder();
+        let button = ImageTextButton::new();
 
         if appearance.show_names {
-            button = button.label(&item.name);
+            button.label.set_label(&item.name);
+            button.label.truncate(appearance.truncate);
         }
 
-        let button = button.build();
-
         if appearance.show_icons {
-            let gtk_image = gtk::Image::new();
             let input = if item.app_id.is_empty() {
                 item.name.clone()
             } else {
@@ -173,45 +174,57 @@ impl ItemButton {
             };
             let image = ImageProvider::parse(&input, icon_theme, true, appearance.icon_size);
             if let Some(image) = image {
-                button.set_image(Some(&gtk_image));
                 button.set_always_show_image(true);
 
-                if let Err(err) = image.load_into_image(gtk_image) {
+                if let Err(err) = image.load_into_image(&button.image) {
                     error!("{err:?}");
                 }
             };
         }
 
-        let style_context = button.style_context();
-        style_context.add_class("item");
+        button.add_class("item");
 
         if item.favorite {
-            style_context.add_class("favorite");
+            button.add_class("favorite");
         }
         if item.open_state.is_open() {
-            style_context.add_class("open");
+            button.add_class("open");
         }
         if item.open_state.is_focused() {
-            style_context.add_class("focused");
-        }
-
-        {
-            let app_id = item.app_id.clone();
-            let tx = controller_tx.clone();
-            button.connect_clicked(move |button| {
-                // lazy check :| TODO: Improve this
-                let style_context = button.style_context();
-                if style_context.has_class("open") {
-                    try_send!(tx, ItemEvent::FocusItem(app_id.clone()));
-                } else {
-                    try_send!(tx, ItemEvent::OpenItem(app_id.clone()));
-                }
-            });
+            button.add_class("focused");
         }
 
         let menu_state = Rc::new(RwLock::new(MenuState {
             num_windows: item.windows.len(),
         }));
+
+        {
+            let app_id = item.app_id.clone();
+            let tx = controller_tx.clone();
+            let menu_state = menu_state.clone();
+
+            button.connect_button_release_event(move |button, event| {
+                if event.button() == BUTTON_PRIMARY {
+                    // lazy check :| TODO: Improve this
+                    let style_context = button.style_context();
+                    if style_context.has_class("open") {
+                        let menu_state = read_lock!(menu_state);
+
+                        if style_context.has_class("focused") && menu_state.num_windows == 1 {
+                            try_send!(tx, ItemEvent::MinimizeItem(app_id.clone()));
+                        } else {
+                            try_send!(tx, ItemEvent::FocusItem(app_id.clone()));
+                        }
+                    } else {
+                        try_send!(tx, ItemEvent::OpenItem(app_id.clone()));
+                    }
+                } else if event.button() == BUTTON_MIDDLE {
+                    try_send!(tx, ItemEvent::OpenItem(app_id.clone()));
+                }
+
+                Propagation::Proceed
+            });
+        }
 
         {
             let app_id = item.app_id.clone();
@@ -295,5 +308,41 @@ impl ItemButton {
         } else {
             style_context.remove_class(class);
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ImageTextButton {
+    pub(crate) button: Button,
+    pub(crate) label: Label,
+    image: Image,
+}
+
+impl ImageTextButton {
+    pub(crate) fn new() -> Self {
+        let button = Button::new();
+        let container = gtk::Box::new(Orientation::Horizontal, 0);
+
+        let label = Label::new(None);
+        let image = Image::new();
+
+        button.add(&container);
+
+        container.add(&image);
+        container.add(&label);
+
+        ImageTextButton {
+            button,
+            label,
+            image,
+        }
+    }
+}
+
+impl Deref for ImageTextButton {
+    type Target = Button;
+
+    fn deref(&self) -> &Self::Target {
+        &self.button
     }
 }

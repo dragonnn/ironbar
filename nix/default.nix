@@ -12,11 +12,16 @@
   gtk-layer-shell,
   gnome,
   libxkbcommon,
+  libdbusmenu-gtk3,
   libpulseaudio,
+  libinput,
+  libevdev,
   openssl,
   luajit,
   luajitPackages,
   pkg-config,
+  installShellFiles,
+  adwaita-icon-theme,
   hicolor-icon-theme,
   rustPlatform,
   lib,
@@ -41,6 +46,7 @@
         pkg-config
         wrapGAppsHook
         gobject-introspection
+        installShellFiles
     ];
 
     buildInputs = [
@@ -50,13 +56,15 @@
       gtk-layer-shell
       glib-networking
       shared-mime-info
-      gnome.adwaita-icon-theme
+      adwaita-icon-theme
       hicolor-icon-theme
       gsettings-desktop-schemas
       libxkbcommon ]
-      ++ (if hasFeature "http" then [ openssl ] else [])
-      ++ (if hasFeature "volume" then [ libpulseaudio ] else [])
-      ++ (if hasFeature "cairo" then [ luajit ] else []);
+      ++ lib.optionals (hasFeature "http") [ openssl ]
+      ++ lib.optionals (hasFeature "tray") [ libdbusmenu-gtk3 ]
+      ++ lib.optionals (hasFeature "volume")[ libpulseaudio ]
+      ++ lib.optionals (hasFeature "cairo") [ luajit ]
+      ++ lib.optionals (hasFeature "keys") [ libinput libevdev ];
 
     propagatedBuildInputs = [ gtk3 ];
 
@@ -72,15 +80,22 @@
             # gtk-launch
             --suffix PATH : "${lib.makeBinPath [ gtk3 ]}"
     ''
-    + (if hasFeature "cairo" then ''
+    + lib.optionalString (hasFeature "cairo") ''
         --prefix LUA_PATH : "./?.lua;${lgi}/share/lua/5.1/?.lua;${lgi}/share/lua/5.1/?/init.lua;${luajit}/share/lua/5.1/\?.lua;${luajit}/share/lua/5.1/?/init.lua"
         --prefix LUA_CPATH : "./?.so;${lgi}/lib/lua/5.1/?.so;${luajit}/lib/lua/5.1/?.so;${luajit}/lib/lua/5.1/loadall.so"
-    '' else "");
+    '';
 
     preFixup = ''
       gappsWrapperArgs+=(
         ${gappsWrapperArgs}
       )
+    '';
+
+    postInstall = ''
+      installShellCompletion --cmd ironbar \
+        --bash target/completions/ironbar.bash \
+        --fish target/completions/ironbar.fish \
+        --zsh target/completions/_ironbar
     '';
 
     passthru = {

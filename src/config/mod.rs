@@ -11,6 +11,8 @@ use crate::modules::clock::ClockModule;
 use crate::modules::custom::CustomModule;
 #[cfg(feature = "focused")]
 use crate::modules::focused::FocusedModule;
+#[cfg(feature = "keys")]
+use crate::modules::keys::KeysModule;
 use crate::modules::label::LabelModule;
 #[cfg(feature = "launcher")]
 use crate::modules::launcher::LauncherModule;
@@ -44,7 +46,7 @@ use std::collections::HashMap;
 use schemars::JsonSchema;
 
 pub use self::common::{CommonConfig, ModuleOrientation, TransitionType};
-pub use self::truncate::TruncateMode;
+pub use self::truncate::{EllipsizeMode, TruncateMode};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -59,6 +61,8 @@ pub enum ModuleConfig {
     Custom(Box<CustomModule>),
     #[cfg(feature = "focused")]
     Focused(Box<FocusedModule>),
+    #[cfg(feature = "keys")]
+    Keys(Box<KeysModule>),
     Label(Box<LabelModule>),
     #[cfg(feature = "launcher")]
     Launcher(Box<LauncherModule>),
@@ -106,6 +110,8 @@ impl ModuleConfig {
             Self::Custom(module) => create!(module),
             #[cfg(feature = "focused")]
             Self::Focused(module) => create!(module),
+            #[cfg(feature = "keys")]
+            Self::Keys(module) => create!(module),
             Self::Label(module) => create!(module),
             #[cfg(feature = "launcher")]
             Self::Launcher(module) => create!(module),

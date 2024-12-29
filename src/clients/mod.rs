@@ -1,5 +1,6 @@
 use crate::await_sync;
 use color_eyre::Result;
+use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -8,6 +9,8 @@ use std::sync::Arc;
 pub mod clipboard;
 #[cfg(feature = "workspaces")]
 pub mod compositor;
+#[cfg(feature = "keys")]
+pub mod libinput;
 #[cfg(feature = "cairo")]
 pub mod lua;
 #[cfg(feature = "music")]
@@ -37,10 +40,12 @@ pub struct Clients {
     sway: Option<Arc<sway::Client>>,
     #[cfg(feature = "clipboard")]
     clipboard: Option<Arc<clipboard::Client>>,
+    #[cfg(feature = "keys")]
+    libinput: HashMap<Box<str>, Arc<libinput::Client>>,
     #[cfg(feature = "cairo")]
     lua: Option<Rc<lua::LuaEngine>>,
     #[cfg(feature = "music")]
-    music: std::collections::HashMap<music::ClientType, Arc<dyn music::MusicClient>>,
+    music: HashMap<music::ClientType, Arc<dyn music::MusicClient>>,
     #[cfg(feature = "network_manager")]
     network_manager: Option<Arc<networkmanager::Client>>,
     #[cfg(feature = "notifications")]
@@ -77,13 +82,12 @@ impl Clients {
 
     #[cfg(feature = "workspaces")]
     pub fn workspaces(&mut self) -> ClientResult<dyn compositor::WorkspaceClient> {
-        let client = match &self.workspaces {
-            Some(workspaces) => workspaces.clone(),
-            None => {
-                let client = compositor::Compositor::create_workspace_client(self)?;
-                self.workspaces.replace(client.clone());
-                client
-            }
+        let client = if let Some(workspaces) = &self.workspaces {
+            workspaces.clone()
+        } else {
+            let client = compositor::Compositor::create_workspace_client(self)?;
+            self.workspaces.replace(client.clone());
+            client
         };
 
         Ok(client)
@@ -91,14 +95,13 @@ impl Clients {
 
     #[cfg(feature = "sway")]
     pub fn sway(&mut self) -> ClientResult<sway::Client> {
-        let client = match &self.sway {
-            Some(client) => client.clone(),
-            None => {
-                let client = await_sync(async { sway::Client::new().await })?;
-                let client = Arc::new(client);
-                self.sway.replace(client.clone());
-                client
-            }
+        let client = if let Some(client) = &self.sway {
+            client.clone()
+        } else {
+            let client = await_sync(async { sway::Client::new().await })?;
+            let client = Arc::new(client);
+            self.sway.replace(client.clone());
+            client
         };
 
         Ok(client)
@@ -108,6 +111,14 @@ impl Clients {
     pub fn lua(&mut self, config_dir: &Path) -> Rc<lua::LuaEngine> {
         self.lua
             .get_or_insert_with(|| Rc::new(lua::LuaEngine::new(config_dir)))
+            .clone()
+    }
+
+    #[cfg(feature = "keys")]
+    pub fn libinput(&mut self, seat: &str) -> Arc<libinput::Client> {
+        self.libinput
+            .entry(seat.into())
+            .or_insert_with(|| libinput::Client::init(seat.to_string()))
             .clone()
     }
 
@@ -121,26 +132,24 @@ impl Clients {
 
     #[cfg(feature = "network_manager")]
     pub fn network_manager(&mut self) -> ClientResult<networkmanager::Client> {
-        match &self.network_manager {
-            Some(client) => Ok(client.clone()),
-            None => {
-                let client = networkmanager::create_client()?;
-                self.network_manager = Some(client.clone());
-                Ok(client)
-            }
+        if let Some(client) = &self.network_manager {
+            Ok(client.clone())
+        } else {
+            let client = networkmanager::create_client()?;
+            self.network_manager = Some(client.clone());
+            Ok(client)
         }
     }
 
     #[cfg(feature = "notifications")]
     pub fn notifications(&mut self) -> ClientResult<swaync::Client> {
-        let client = match &self.notifications {
-            Some(client) => client.clone(),
-            None => {
-                let client = await_sync(async { swaync::Client::new().await })?;
-                let client = Arc::new(client);
-                self.notifications.replace(client.clone());
-                client
-            }
+        let client = if let Some(client) = &self.notifications {
+            client.clone()
+        } else {
+            let client = await_sync(async { swaync::Client::new().await })?;
+            let client = Arc::new(client);
+            self.notifications.replace(client.clone());
+            client
         };
 
         Ok(client)
@@ -148,14 +157,13 @@ impl Clients {
 
     #[cfg(feature = "tray")]
     pub fn tray(&mut self) -> ClientResult<tray::Client> {
-        let client = match &self.tray {
-            Some(client) => client.clone(),
-            None => {
-                let client = await_sync(async { tray::Client::new().await })?;
-                let client = Arc::new(client);
-                self.tray.replace(client.clone());
-                client
-            }
+        let client = if let Some(client) = &self.tray {
+            client.clone()
+        } else {
+            let client = await_sync(async { tray::Client::new().await })?;
+            let client = Arc::new(client);
+            self.tray.replace(client.clone());
+            client
         };
 
         Ok(client)
@@ -163,13 +171,12 @@ impl Clients {
 
     #[cfg(feature = "upower")]
     pub fn upower(&mut self) -> ClientResult<zbus::fdo::PropertiesProxy<'static>> {
-        let client = match &self.upower {
-            Some(client) => client.clone(),
-            None => {
-                let client = await_sync(async { upower::create_display_proxy().await })?;
-                self.upower.replace(client.clone());
-                client
-            }
+        let client = if let Some(client) = &self.upower {
+            client.clone()
+        } else {
+            let client = await_sync(async { upower::create_display_proxy().await })?;
+            self.upower.replace(client.clone());
+            client
         };
 
         Ok(client)
